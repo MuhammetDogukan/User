@@ -1,4 +1,5 @@
 ﻿using Application.DtoEntity;
+using Domain.DtoEntity;
 using Domain.Entity;
 using System;
 using System.Collections.Generic;
@@ -10,10 +11,10 @@ namespace Application.IServices
 {
     public interface IUserService
     {
-        public Task<IEnumerable<User>> GetUsers();
-        public Task<User> GetUserById(int id);
-        public Task CreateUser(User user);
-        public Task UpdateUser(User user);
+        public Task<IEnumerable<GetUser>> GetUsers();
+        public Task<GetUser> GetUserById(int id);
+        public Task<GetUser> CreateUser(CreateUser user);
+        public Task UpdateUser(UpdateUser userUpdate, string id);
         public Task DeleteUser(int id);
         public Task<string> LoginAsync(Login model);
     }

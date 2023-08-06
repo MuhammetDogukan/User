@@ -68,7 +68,7 @@ namespace Application.Services
 
                 var cacheEntryOptions = new DistributedCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) 
                 };
                 var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDtos));
                 await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
@@ -101,7 +101,7 @@ namespace Application.Services
 
                 var cacheEntryOptions = new DistributedCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) 
                 };
                 var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDto));
                 await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
@@ -160,6 +160,17 @@ namespace Application.Services
             //user.PasswordHash = passwordHasher.HashPassword(user, user.PasswordHash);
             user.IsDeleted = false;
 
+
+            var cacheKey = $"User_{user.Id}";
+            var cacheEntryOptions = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60)
+            };
+            var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(user));
+            await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
+
+
+
             _userContext.Users.Add(user);
             await _userContext.SaveChangesAsync();
 
@@ -186,7 +197,15 @@ namespace Application.Services
 
             var user = _mapper.Map<User>(updateUser);
             var validationResult = await _validator.ValidateAsync(user);
-            
+
+            var cacheKey = $"User_{user.Id}";
+            var cacheEntryOptions = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60)
+            };
+            var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(user));
+            await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
+
             _userContext.Users.Update(user);
             await _userContext.SaveChangesAsync();
 
