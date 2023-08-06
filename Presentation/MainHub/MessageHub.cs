@@ -36,7 +36,7 @@ namespace Presentation.MainHub
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, name);
         }
-        public async Task OnDisconnectedAsync()
+        public async override Task OnDisconnectedAsync(Exception? exception)
         {
 
 
@@ -45,7 +45,7 @@ namespace Presentation.MainHub
             nameAndConnectedId.Remove(claimName);
             nameAndConnectedId.Remove(Context.ConnectionId);
 
-            
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }

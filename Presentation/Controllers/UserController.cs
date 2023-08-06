@@ -16,7 +16,6 @@ using Newtonsoft.Json;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.RegularExpressions;
 using Presentation.MainHub;
-using Microsoft.AspNetCore.Authorization;
 
 namespace Presentation.Controllers
 {
@@ -38,162 +37,41 @@ namespace Presentation.Controllers
             _distributedCache = distributedCache;
             _messageHub = messageHub;
         }
-        [Authorize(Roles = "Admin, SupersUser")]
+
         [HttpGet]
         public async Task<IActionResult> GetUsers()
         {
-            var cacheKey = "AllUsers";
-            var cachedUsers = await _distributedCache.GetStringAsync(cacheKey);
-
-            if (!string.IsNullOrEmpty(cachedUsers))
-            {
-                // Önbellekten veriyi al ve dön
-                var userDtos = _mapper.Map<IEnumerable<GetUser>>(JsonConvert.DeserializeObject<IEnumerable<User>>(cachedUsers));
-                return Ok(userDtos);
-            }
-            else
-            {
-                var users = await _userService.GetUsers();
-                var userDtos = _mapper.Map<IEnumerable<GetUser>>(users);
-
-                var cacheEntryOptions = new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
-                };
-                var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDtos));
-                await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
-
-                return Ok(userDtos);
-            }
+            var users = await _userService.GetUsers();
+            return Ok(users);
         }
-        [Authorize(Roles = "Admin, User, SupersUser")]
+
         [HttpGet("{id}")]
         public async Task<ActionResult<GetUser>> GetUserById(int id)
         {
-            var cacheKey = $"User_{id}";
-            var cachedUserDto = await _distributedCache.GetStringAsync(cacheKey);
-
-            if (!string.IsNullOrEmpty(cachedUserDto))
-            {
-                // Önbellekten veriyi al ve dön
-                var userDto = _mapper.Map<GetUser>(JsonConvert.DeserializeObject<User>(cachedUserDto));
-                return Ok(userDto);
-            }
-            else
-            {
-                var user = await _userService.GetUserById(id);
-                if (user == null)
-                {
-                    return NotFound();
-                }
-
-                var userDto = _mapper.Map<GetUser>(user);
-
-                var cacheEntryOptions = new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
-                };
-                var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDto));
-                await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
-
-                return Ok(userDto);
-            }
+            var user = await _userService.GetUserById(id);
+            return Ok(user);  
         }
-        [Authorize(Roles = "Admin")]
+
         [HttpPost]
         public async Task<ActionResult> CreateUser(CreateUser createUser)
         {
-            try
-            {
-
-                var user = _mapper.Map<User>(createUser);
-
-
-
-                user.SecurityStamp = Guid.NewGuid().ToString();
-                
-                if (createUser.Role == "User")
-                    await _userManager.AddToRoleAsync(user, "User");
-                else if (createUser.Role == "Admin")
-                {
-                    await _userManager.AddToRoleAsync(user, "Admin");
-                    await _messageHub.Clients.All.AddAdminGroup();
-                }
-                    
-                else if (createUser.Role == "SuperUser")
-                    await _userManager.AddToRoleAsync(user, "SuperUser");
-                else
-                    return BadRequest("Please enter accepteable role");
-                
-                await _messageHub.Clients.Group("Admin").SendMesssageToAdmins($"{user.UserName} has joined");
-                
-                //belli bir kullanıcıya mesaj göndermek için
-                /*
-                MessageHub messageHub = new MessageHub();
-                var a = messageHub.nameAndConnectedId;
-                string specificUserName ="";
-                foreach (var b in a)
-                {
-                    if ( b=="string" )
-                    {
-                        specificUserName = a[a.IndexOf(b) + 1];
-                    }
-                }
-                
-                await _messageHub.Clients.User(specificUserName).SendMesssageToUser($"{user.UserName} has joined","1");
-                */
-
-
-                await _userService.CreateUser(user);
-                var createdUserDto = _mapper.Map<GetUser>(user);
-
-
-                return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, createdUserDto);
-            }
-            catch (ValidationException ex)
-            {
-                return BadRequest(ex.Errors);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "An error occurred while creating the user.");
-            }
+            var createdUserDto = await _userService.CreateUser(createUser);
+            return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);            
         }
-        [Authorize(Roles = "Admin")]
+
         [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateUser(int id, UpdateUser updateUser)
+        public async Task<ActionResult> UpdateUser(string id, UpdateUser updateUser)
         {
-
-            try
-            {
-                var user = _mapper.Map<User>(updateUser);
-                await _userService.UpdateUser(user);
-                return NoContent();
-            }
-            catch (ValidationException ex)
-            {
-                return BadRequest(ex.Errors);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "An error occurred while updating the user.");
-            }
+            await _userService.UpdateUser(updateUser, id);
+            return NoContent();            
         }
-        [Authorize(Roles = "Admin")]
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteUser(int id)
         {
-            try
-            {
-                await _userService.DeleteUser(id);
-                return NoContent();
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "An error occurred while deleting the user.");
-            }
+            await _userService.DeleteUser(id);
+            return NoContent();            
         }
-
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(Login login)
         {

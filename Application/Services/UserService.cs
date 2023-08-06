@@ -2,17 +2,23 @@
 using Application.IServices;
 using Application.RabbitMQ;
 using Application.TokenService;
+using AutoMapper;
 using Domain.DtoEntity;
 using Domain.Entity;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
+using Application.MainHub;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using System.Text.RegularExpressions;
 
 namespace Application.Services
 {
@@ -23,39 +29,130 @@ namespace Application.Services
         private readonly ITokenService _tokenService;
         private readonly IRabbitMQService _rabbitMQService;
         private readonly IConsumer _consumer;
-        public UserService(IUserContext userContext, IValidator<User> validator, ITokenService tokenService, IRabbitMQService rabbitMQService, IConsumer consumer)
+        private readonly IDistributedCache _distributedCache;
+        private readonly IMapper _mapper;
+        private readonly UserManager<User> _userManager;
+        private readonly IHubContext<MessageHub, IMessageHub> _messageHub;
+
+        public UserService(IUserContext userContext, IValidator<User> validator, ITokenService tokenService, IRabbitMQService rabbitMQService, 
+            IConsumer consumer, IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager)
         {
             _userContext = userContext;
             _validator = validator;
             _tokenService = tokenService;
             _rabbitMQService = rabbitMQService;
             _consumer = consumer;
+            _distributedCache = distributedCache;
+            _mapper = mapper;
+            _userManager = userManager;
         }
         
 
-        public async Task<IEnumerable<User>> GetUsers()
+        public async Task<IEnumerable<GetUser>> GetUsers()
         {
-            return await _userContext.Users.ToListAsync();
+
+            var cacheKey = "AllUsers";
+            var cachedUsers = await _distributedCache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cachedUsers))
+            {
+                // Önbellekten veriyi al ve dön
+                var userDtos = _mapper.Map<IEnumerable<GetUser>>(JsonConvert.DeserializeObject<IEnumerable<User>>(cachedUsers));
+                return userDtos;
+            }
+            else
+            {
+                var users = await _userContext.Users.ToListAsync();
+                var userDtos = _mapper.Map<IEnumerable<GetUser>>(users);
+
+                var cacheEntryOptions = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
+                };
+                var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDtos));
+                await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
+
+                return userDtos;
+            }
         }
 
-        public async Task<User> GetUserById(int id)
+        public async Task<GetUser> GetUserById(int id)
         {
-            return await _userContext.Users.FindAsync(id);
-        }
 
-        public async Task CreateUser(User user)
+            var cacheKey = $"User_{id}";
+            var cachedUserDto = await _distributedCache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cachedUserDto))
+            {
+                // Önbellekten veriyi al ve dön
+                var userDto = _mapper.Map<GetUser>(JsonConvert.DeserializeObject<User>(cachedUserDto));
+                return userDto;
+            }
+            else
+            {
+                var user = await _userContext.Users.FindAsync(id);
+                if (user == null)
+                {
+                    throw new ArgumentException("User didn't find");
+                }
+
+                var userDto = _mapper.Map<GetUser>(user);
+
+                var cacheEntryOptions = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60) // Örnek olarak 1 saat süreyle önbellekte tutabilirsiniz
+                };
+                var byteData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userDto));
+                await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
+
+                return userDto;
+            }
+        }
+        public async Task<GetUser> CreateUser(CreateUser createUser)
         {
+            var user = _mapper.Map<User>(createUser);
+
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
+
+            user.SecurityStamp = Guid.NewGuid().ToString();
+
+            if (createUser.Role == "User")
+                await _userManager.AddToRoleAsync(user, "User");
+            else if (createUser.Role == "Admin")
+            {
+                await _userManager.AddToRoleAsync(user, "Admin");
+                await _messageHub.Clients.All.AddAdminGroup();
+            }
+
+            else if (createUser.Role == "SuperUser")
+                await _userManager.AddToRoleAsync(user, "SuperUser");
+            else
+                throw new Exception("Please enter accepteable role");
+
+            await _messageHub.Clients.Group("Admin").SendMesssageToAdmins($"{user.UserName} has joined");
+
+            /*
+            MessageHub messageHub = new MessageHub();
+            var a = messageHub.nameAndConnectedId;
+            foreach (var b in a)
+            {
+                    
+            }
+                
+            await _messageHub.Clients.User("").SendMesssageToUser($"{user.UserName} has joined","1");
+            */
+
+            
 
            
             user.PasswordHash=Guid.NewGuid().ToString("N").Substring(0, 11).ToLower();
             
             var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash;
             _rabbitMQService.SendMessage(mailMessage);
-            await _consumer.GetMessageFromQueue(mailMessage, user.Email);
+            //await _consumer.GetMessageFromQueue(mailMessage, user.Email);
 
 
             //var passwordHasher = new PasswordHasher<User>();
@@ -64,21 +161,35 @@ namespace Application.Services
 
             _userContext.Users.Add(user);
             await _userContext.SaveChangesAsync();
+
+
+            var getUserDto = _mapper.Map<GetUser>(user);
+
+
+            return getUserDto;
+
         }
 
-        public async Task UpdateUser(User user)
+        public async Task UpdateUser(UpdateUser updateUser, string id)
         {
-            if (user == null)
+            if (updateUser == null)
             {
-                throw new ArgumentNullException(nameof(user));
+                throw new ArgumentNullException(nameof(updateUser));
+            }
+            var userQuery = await _userContext.Users.FindAsync(id);
+            if (userQuery == null)
+            {
+                throw new Exception("User didn't find");
             }
 
+
+            var user = _mapper.Map<User>(updateUser);
             var validationResult = await _validator.ValidateAsync(user);
-
-           
-
+            
             _userContext.Users.Update(user);
             await _userContext.SaveChangesAsync();
+
+            
         }
 
         public async Task DeleteUser(int id)
