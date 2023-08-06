@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.RegularExpressions;
+using Application.Enums;
 
 namespace Application.Services
 {
@@ -119,20 +120,20 @@ namespace Application.Services
 
             user.SecurityStamp = Guid.NewGuid().ToString();
 
-            if (createUser.Role == "User")
-                await _userManager.AddToRoleAsync(user, "User");
-            else if (createUser.Role == "Admin")
+            if (createUser.Role == RoleEnum.User.ToString())
+                await _userManager.AddToRoleAsync(user, RoleEnum.User.ToString());
+            else if (createUser.Role == RoleEnum.Admin.ToString())
             {
-                await _userManager.AddToRoleAsync(user, "Admin");
+                await _userManager.AddToRoleAsync(user, RoleEnum.Admin.ToString());
                 await _messageHub.Clients.All.AddAdminGroup();
             }
 
-            else if (createUser.Role == "SuperUser")
-                await _userManager.AddToRoleAsync(user, "SuperUser");
+            else if (createUser.Role == RoleEnum.SuperUser.ToString())
+                await _userManager.AddToRoleAsync(user, RoleEnum.SuperUser.ToString());
             else
                 throw new Exception("Please enter accepteable role");
 
-            await _messageHub.Clients.Group("Admin").SendMesssageToAdmins($"{user.UserName} has joined");
+            await _messageHub.Clients.Group(RoleEnum.Admin.ToString()).SendMesssageToAdmins($"{user.UserName} has joined");
 
             /*
             MessageHub messageHub = new MessageHub();
