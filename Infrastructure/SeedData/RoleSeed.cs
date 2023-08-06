@@ -12,7 +12,6 @@ namespace Infrastructure.SeedData
 {
     public class RoleSeed : IEntityTypeConfiguration<IdentityRole<int>>
     {
-
         public void Configure(EntityTypeBuilder<IdentityRole<int>> builder)
         {
             builder.HasData(new IdentityRole<int>
