@@ -150,17 +150,15 @@ namespace Application.Services
             await _messageHub.Clients.User("").SendMesssageToUser($"{user.UserName} has joined","1");
             */
 
-            
 
-           
-            user.PasswordHash=Guid.NewGuid().ToString("N").Substring(0, 11).ToLower();
-            
-            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+". "+user.Email;
+
+
+            //string Password=Guid.NewGuid().ToString("N").Substring(0, 6).ToLower();
+            string Password = "123123";
+
+            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash + ". " + user.Email;
             _rabbitMQService.SendMessage(mailMessage);
 
-
-            //var passwordHasher = new PasswordHasher<User>();
-            //user.PasswordHash = passwordHasher.HashPassword(user, user.PasswordHash);
             user.IsDeleted = false;
 
 
@@ -174,8 +172,7 @@ namespace Application.Services
 
 
 
-            _userContext.Users.Add(user);
-            await _userContext.SaveChangesAsync();
+            await _userManager.CreateAsync(user, Password);
 
 
             var getUserDto = _mapper.Map<GetUser>(user);
