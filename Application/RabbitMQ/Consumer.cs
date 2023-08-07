@@ -1,8 +1,10 @@
-﻿using RabbitMQ.Client;
+﻿using Microsoft.Extensions.Hosting;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Logging;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
@@ -11,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace Application.RabbitMQ
 {
-    public class Consumer : IConsumer
+    public class Consumer : BackgroundService
     {
         private readonly ConnectionFactory _connectionFactory;
         private readonly string _queueName = "mail_queue";
@@ -36,30 +38,56 @@ namespace Application.RabbitMQ
                     channel.QueueDeclare(queue: _queueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
                     var consumer = new EventingBasicConsumer(channel);
                     
-                    consumer.Received += (model, ea) =>
+                    consumer.Received += async (model, ea) =>
                     {
                         var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
+                        message = Encoding.UTF8.GetString(body);
+                        //await SendMail(message, toMail);
                     };
                     channel.BasicConsume(queue: _queueName,
                                          autoAck: true,
                                          consumer: consumer);
-                    //await SendMail(message, toMail);
 
 
                 }
             }
         }
 
-        private async Task SendMail(string message, string toMail)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            using (var connection = _connectionFactory.CreateConnection())
+            {
+                using (var channel = connection.CreateModel())
+                {
+                    channel.QueueDeclare(queue: _queueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
+                    var consumer = new EventingBasicConsumer(channel);
+
+                    consumer.Received += async (model, ea) =>
+                    {
+                        var body = ea.Body.ToArray();
+                        var message = Encoding.UTF8.GetString(body);
+                        //await SendMail(message);
+                    };
+                    channel.BasicConsume(queue: _queueName,
+                                         autoAck: true,
+                                         consumer: consumer);
+
+
+                }
+            }
+        }
+
+        private async Task SendMail(string message)
+        {
+            string[] messages = message.Split(".");
             var mailMessage = new MailMessage
             {
                 From = new MailAddress("UserApp@gmail.com"),
                 Subject = "Welcome to the user system",
-                Body = message
+                Body = messages[0]
             };
-            mailMessage.To.Add(toMail);
+
+            mailMessage.To.Add(messages[1]);
             using (var smtpClient = new SmtpClient("aaa@gmail.com", 25))
             {
                 smtpClient.Credentials = new NetworkCredential("Dogukan", "1234");

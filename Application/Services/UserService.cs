@@ -29,20 +29,18 @@ namespace Application.Services
         private readonly IValidator<User> _validator;
         private readonly ITokenService _tokenService;
         private readonly IRabbitMQService _rabbitMQService;
-        private readonly IConsumer _consumer;
         private readonly IDistributedCache _distributedCache;
         private readonly IMapper _mapper;
         private readonly UserManager<User> _userManager;
         private readonly IHubContext<MessageHub, IMessageHub> _messageHub;
 
         public UserService(IUserContext userContext, IValidator<User> validator, ITokenService tokenService, IRabbitMQService rabbitMQService, 
-            IConsumer consumer, IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager)
+            IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager)
         {
             _userContext = userContext;
             _validator = validator;
             _tokenService = tokenService;
             _rabbitMQService = rabbitMQService;
-            _consumer = consumer;
             _distributedCache = distributedCache;
             _mapper = mapper;
             _userManager = userManager;
@@ -153,7 +151,6 @@ namespace Application.Services
             
             var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash;
             _rabbitMQService.SendMessage(mailMessage);
-            //await _consumer.GetMessageFromQueue(mailMessage, user.Email);
 
 
             //var passwordHasher = new PasswordHasher<User>();

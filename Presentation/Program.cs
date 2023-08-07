@@ -28,7 +28,6 @@ builder.Services.AddScoped<IUserContext, UserContext>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddAutoMapper(typeof(UserProfile));
 builder.Services.AddScoped<IRabbitMQService, RabbitMQService>();
-builder.Services.AddScoped<IConsumer, Consumer>();
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -113,7 +112,7 @@ builder.Services.AddDbContext<UserContext>(options =>
 
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddSignalR();
-
+builder.Services.AddHostedService<Consumer>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
