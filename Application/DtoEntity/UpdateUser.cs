@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Domain.DtoEntity
 {
-    public class UpdateUser
+    public class UpdateUserDto
     {
         public string? Name { get; set; }
         public string? UserName { get; set; }

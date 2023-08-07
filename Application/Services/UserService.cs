@@ -49,7 +49,7 @@ namespace Application.Services
         }
         
 
-        public async Task<IEnumerable<GetUser>> GetUsers()
+        public async Task<IEnumerable<GetUserDto>> GetUsers()
         {
 
             var cacheKey = "AllUsers";
@@ -58,13 +58,13 @@ namespace Application.Services
             if (!string.IsNullOrEmpty(cachedUsers))
             {
                 // Önbellekten veriyi al ve dön
-                var userDtos = _mapper.Map<IEnumerable<GetUser>>(JsonConvert.DeserializeObject<IEnumerable<User>>(cachedUsers));
+                var userDtos = _mapper.Map<IEnumerable<GetUserDto>>(JsonConvert.DeserializeObject<IEnumerable<User>>(cachedUsers));
                 return userDtos;
             }
             else
             {
                 var users = await _userContext.Users.ToListAsync();
-                var userDtos = _mapper.Map<IEnumerable<GetUser>>(users);
+                var userDtos = _mapper.Map<IEnumerable<GetUserDto>>(users);
 
                 var cacheEntryOptions = new DistributedCacheEntryOptions
                 {
@@ -77,7 +77,7 @@ namespace Application.Services
             }
         }
 
-        public async Task<GetUser> GetUserById(int id)
+        public async Task<GetUserDto> GetUserById(int id)
         {
 
             var cacheKey = $"User_{id}";
@@ -86,7 +86,7 @@ namespace Application.Services
             if (!string.IsNullOrEmpty(cachedUserDto))
             {
                 // Önbellekten veriyi al ve dön
-                var userDto = _mapper.Map<GetUser>(JsonConvert.DeserializeObject<User>(cachedUserDto));
+                var userDto = _mapper.Map<GetUserDto>(JsonConvert.DeserializeObject<User>(cachedUserDto));
                 return userDto;
             }
             else
@@ -97,7 +97,7 @@ namespace Application.Services
                     throw new ArgumentException("User didn't find");
                 }
 
-                var userDto = _mapper.Map<GetUser>(user);
+                var userDto = _mapper.Map<GetUserDto>(user);
 
                 var cacheEntryOptions = new DistributedCacheEntryOptions
                 {
@@ -109,7 +109,7 @@ namespace Application.Services
                 return userDto;
             }
         }
-        public async Task<GetUser> CreateUser(CreateUser createUser)
+        public async Task<GetUserDto> CreateUser(CreateUserDto createUser)
         {
             var user = _mapper.Map<User>(createUser);
             if (user == null)
@@ -177,14 +177,14 @@ namespace Application.Services
             await _userManager.CreateAsync(user, Password);
 
 
-            var getUserDto = _mapper.Map<GetUser>(user);
+            var getUserDto = _mapper.Map<GetUserDto>(user);
 
 
             return getUserDto;
 
         }
 
-        public async Task UpdateUser(UpdateUser updateUser, string id)
+        public async Task UpdateUser(UpdateUserDto updateUser, string id)
         {
             if (updateUser == null)
             {
@@ -229,7 +229,7 @@ namespace Application.Services
                 await _userContext.SaveChangesAsync();
             }
         }
-        public async Task<string> LoginAsync(Login model)
+        public async Task<string> LoginAsync(LoginDto model)
         {
             
             var user = await _userContext.Users.FirstOrDefaultAsync(u => u.UserName == model.UserName);

@@ -13,10 +13,11 @@ namespace Domain.MapperProfile
     {
         public UserProfile()
         {
-            CreateMap<CreateUser, User>();
-            CreateMap<User, CreateUser>();
-            CreateMap<User, GetUser>();
-            CreateMap<UpdateUser, User>();
+            CreateMap<CreateUserDto, User>();
+            CreateMap<User, CreateUserDto>();
+            CreateMap<User, GetUserDto>();
+            CreateMap<GetUserDto, User>();
+            CreateMap<UpdateUserDto, User>();
         }
     }
 }

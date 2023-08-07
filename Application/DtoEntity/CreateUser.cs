@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Domain.DtoEntity
 {
-    public class CreateUser
+    public class CreateUserDto
     {
         public string? Name { get; set; }
         public string? UserName { get; set; }

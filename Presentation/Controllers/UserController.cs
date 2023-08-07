@@ -37,21 +37,21 @@ namespace Presentation.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<GetUser>> GetUserById(int id)
+        public async Task<ActionResult<GetUserDto>> GetUserById(int id)
         {
             var user = await _userService.GetUserById(id);
             return Ok(user);  
         }
 
         [HttpPost]
-        public async Task<ActionResult> CreateUser(CreateUser createUser)
+        public async Task<ActionResult> CreateUser(CreateUserDto createUser)
         {
             var createdUserDto = await _userService.CreateUser(createUser);
             return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);            
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateUser(string id, UpdateUser updateUser)
+        public async Task<ActionResult> UpdateUser(string id, UpdateUserDto updateUser)
         {
             await _userService.UpdateUser(updateUser, id);
             return NoContent();            
@@ -64,7 +64,7 @@ namespace Presentation.Controllers
             return NoContent();            
         }
         [HttpPost("login")]
-        public async Task<ActionResult<string>> Login(Login login)
+        public async Task<ActionResult<string>> Login(LoginDto login)
         {
             string token = await _userService.LoginAsync(login);
             return Ok(token);

@@ -11,11 +11,11 @@ namespace Application.IServices
 {
     public interface IUserService
     {
-        public Task<IEnumerable<GetUser>> GetUsers();
-        public Task<GetUser> GetUserById(int id);
-        public Task<GetUser> CreateUser(CreateUser user);
-        public Task UpdateUser(UpdateUser userUpdate, string id);
+        public Task<IEnumerable<GetUserDto>> GetUsers();
+        public Task<GetUserDto> GetUserById(int id);
+        public Task<GetUserDto> CreateUser(CreateUserDto user);
+        public Task UpdateUser(UpdateUserDto userUpdate, string id);
         public Task DeleteUser(int id);
-        public Task<string> LoginAsync(Login model);
+        public Task<string> LoginAsync(LoginDto model);
     }
 }
