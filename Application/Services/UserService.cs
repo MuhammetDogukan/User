@@ -111,7 +111,10 @@ namespace Application.Services
         }
         public async Task<GetUserDto> CreateUser(CreateUserDto createUser)
         {
+            string[] userName = createUser.Email.Split("@");
             var user = _mapper.Map<User>(createUser);
+            user.UserName = userName[0];
+
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
