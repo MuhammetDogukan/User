@@ -15,7 +15,6 @@ using System.Text;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.RegularExpressions;
-using Presentation.MainHub;
 
 namespace Presentation.Controllers
 {
@@ -24,18 +23,10 @@ namespace Presentation.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IMapper _mapper;
-        private readonly UserManager<User> _userManager;
-        private readonly IDistributedCache _distributedCache;
-        private readonly IHubContext<MessageHub, IMessageHub> _messageHub;
 
-        public UserController(IUserService userService, IMapper mapper, UserManager<User> userManager, IDistributedCache distributedCache, IHubContext<MessageHub, IMessageHub> messageHub)
+        public UserController(IUserService userService)
         {
             _userService = userService;
-            _mapper = mapper;
-            _userManager = userManager;
-            _distributedCache = distributedCache;
-            _messageHub = messageHub;
         }
 
         [HttpGet]

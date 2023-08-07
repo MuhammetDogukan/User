@@ -40,7 +40,7 @@ namespace Application.Services
             _userContext = userContext;
             _validator = validator;
             _tokenService = tokenService;
-            _rabbitMQService = rabbitMQService;
+            _rabbitMQService = rabbitMQService; 
             _distributedCache = distributedCache;
             _mapper = mapper;
             _userManager = userManager;
@@ -110,10 +110,16 @@ namespace Application.Services
         public async Task<GetUser> CreateUser(CreateUser createUser)
         {
             var user = _mapper.Map<User>(createUser);
-
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
+            }
+
+            var validationResult = await _validator.ValidateAsync(user);
+
+            if (!validationResult.IsValid)
+            {
+                throw new FluentValidation.ValidationException(validationResult.Errors);
             }
 
             user.SecurityStamp = Guid.NewGuid().ToString();
@@ -131,7 +137,7 @@ namespace Application.Services
             else
                 throw new Exception("Please enter accepteable role");
 
-            await _messageHub.Clients.Group(RoleEnum.Admin.ToString()).SendMesssageToAdmins($"{user.UserName} has joined");
+            //await _messageHub.Clients.Group(RoleEnum.Admin.ToString()).SendMesssageToAdmins($"{user.UserName} has joined");
 
             /*
             MessageHub messageHub = new MessageHub();
@@ -149,7 +155,7 @@ namespace Application.Services
            
             user.PasswordHash=Guid.NewGuid().ToString("N").Substring(0, 11).ToLower();
             
-            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash;
+            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+". "+user.Email;
             _rabbitMQService.SendMessage(mailMessage);
 
 
@@ -194,6 +200,11 @@ namespace Application.Services
 
             var user = _mapper.Map<User>(updateUser);
             var validationResult = await _validator.ValidateAsync(user);
+
+            if (!validationResult.IsValid)
+            {
+                throw new FluentValidation.ValidationException(validationResult.Errors);
+            }
 
             var cacheKey = $"User_{user.Id}";
             var cacheEntryOptions = new DistributedCacheEntryOptions
