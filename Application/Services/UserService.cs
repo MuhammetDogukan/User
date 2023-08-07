@@ -33,9 +33,10 @@ namespace Application.Services
         private readonly IMapper _mapper;
         private readonly UserManager<User> _userManager;
         private readonly IHubContext<MessageHub, IMessageHub> _messageHub;
+        private readonly SignInManager<User> _signInManager;
 
         public UserService(IUserContext userContext, IValidator<User> validator, ITokenService tokenService, IRabbitMQService rabbitMQService, 
-            IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager)
+            IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager, SignInManager<User> signInManager)
         {
             _userContext = userContext;
             _validator = validator;
@@ -44,6 +45,7 @@ namespace Application.Services
             _distributedCache = distributedCache;
             _mapper = mapper;
             _userManager = userManager;
+            _signInManager = signInManager;
         }
         
 
@@ -156,7 +158,7 @@ namespace Application.Services
             //string Password=Guid.NewGuid().ToString("N").Substring(0, 6).ToLower();
             string Password = "123123";
 
-            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash + ". " + user.Email;
+            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+". "+user.Email;
             _rabbitMQService.SendMessage(mailMessage);
 
             user.IsDeleted = false;
@@ -230,16 +232,16 @@ namespace Application.Services
         {
             
             var user = await _userContext.Users.FirstOrDefaultAsync(u => u.UserName == model.UserName);
+            
 
             if (user == null)
             {
                 throw new ArgumentException("Invalid username or password.");
             }
 
-            //var passwordHasher = new PasswordHasher<User>();
-            //var passworVerifacition = passwordHasher.VerifyHashedPassword(user, user.PasswordHash,model.PasswordHash);
+            var passwordResult = await _signInManager.PasswordSignInAsync(user, model.PasswordHash, false, false);
 
-            if (user.PasswordHash != model.PasswordHash)
+            if (!passwordResult.Succeeded)
             {
                 throw new ArgumentException("Invalid username or password.");
             }
