@@ -38,11 +38,13 @@ namespace Infrastructure.Context
 
         public async Task<int> SaveChangesAsync()
         {
-            HandleUserDelete();;
+            //HandleUserDelete();;
             return await base.SaveChangesAsync();
         }
+        /*
         private void HandleUserDelete()
         {
+            
             var entities = ChangeTracker.Entries()
                                 .Where(e => e.State == EntityState.Deleted);
             foreach (var entity in entities)
@@ -54,7 +56,8 @@ namespace Infrastructure.Context
                     user.IsDeleted = true;
                 }
             }
-
+            
         }
+        */
     }
 }

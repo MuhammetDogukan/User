@@ -224,7 +224,8 @@ namespace Application.Services
             var user = await _userContext.Users.FindAsync(id);
             if (user != null)
             {
-                _userContext.Users.Remove(user);
+                user.IsDeleted = true;
+                _userContext.Users.Update(user);
                 await _userContext.SaveChangesAsync();
             }
         }
