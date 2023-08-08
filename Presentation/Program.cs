@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Presentation.MainHub;
+using Application.MainHub;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
@@ -28,6 +28,8 @@ builder.Services.AddScoped<IUserContext, UserContext>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddAutoMapper(typeof(UserProfile));
 builder.Services.AddScoped<IRabbitMQService, RabbitMQService>();
+builder.Services.AddScoped<UserManager<User>>();
+builder.Services.AddScoped<SignInManager<User>>();
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -36,14 +38,14 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 builder.Services.AddControllers().AddFluentValidation(options =>
-                {
-                    // Validate child properties and root collection elements
-                    options.ImplicitlyValidateChildProperties = true;
-                    options.ImplicitlyValidateRootCollectionElements = true;
+{
+    // Validate child properties and root collection elements
+    options.ImplicitlyValidateChildProperties = true;
+    options.ImplicitlyValidateRootCollectionElements = true;
 
-                    // Automatic registration of validators in assembly
-                    options.RegisterValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-                });
+    // Automatic registration of validators in assembly
+    options.RegisterValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(option =>
 {
@@ -95,7 +97,7 @@ builder.Services
 builder.Services
     .AddIdentityCore<User>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedAccount = true;
         options.User.RequireUniqueEmail = true;
         options.Password.RequireDigit = false;
         options.Password.RequiredLength = 6;
@@ -104,7 +106,8 @@ builder.Services
         options.Password.RequireLowercase = false;
     })
     .AddRoles<IdentityRole<int>>()
-    .AddEntityFrameworkStores<UserContext>();
+    .AddEntityFrameworkStores<UserContext>()
+    .AddDefaultTokenProviders();
 
 builder.Services.AddDbContext<UserContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserConnectionString"),

@@ -17,5 +17,6 @@ namespace Application.IServices
         public Task UpdateUser(UpdateUserDto userUpdate, string id);
         public Task DeleteUser(int id);
         public Task<string> LoginAsync(LoginDto model);
+        public Task<string> ActivateAcount(int id, string token);
     }
 }

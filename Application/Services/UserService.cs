@@ -20,6 +20,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.RegularExpressions;
 using Application.Enums;
+using Microsoft.AspNetCore.WebUtilities;
+using System.Security.Policy;
+using System.Text.Encodings.Web;
+using System.Security.Permissions;
+using Microsoft.AspNetCore.Http;
+using static System.Net.WebRequestMethods;
+using System.Net;
 
 namespace Application.Services
 {
@@ -111,15 +118,13 @@ namespace Application.Services
         }
         public async Task<GetUserDto> CreateUser(CreateUserDto createUser)
         {
-            string[] userName = createUser.Email.Split("@");
+            string[] userName = createUser.Email.Split("@"); 
             var user = _mapper.Map<User>(createUser);
             user.UserName = userName[0];
-
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
             var validationResult = await _validator.ValidateAsync(user);
 
             if (!validationResult.IsValid)
@@ -157,11 +162,15 @@ namespace Application.Services
 
 
 
-
             //string Password=Guid.NewGuid().ToString("N").Substring(0, 6).ToLower();
             string Password = "123123";
 
-            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+". "+user.Email;
+
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            token = WebUtility.UrlEncode(token);
+
+            var url = $"https://localhost:7161/api/User/{user.Id}/{token}";
+            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+", to onfirm your email click here "+url+"."+user.Email;
             _rabbitMQService.SendMessage(mailMessage);
 
             user.IsDeleted = false;
@@ -237,7 +246,10 @@ namespace Application.Services
             
             var user = await _userContext.Users.FirstOrDefaultAsync(u => u.UserName == model.UserName);
             
-
+            if (!await _userManager.IsEmailConfirmedAsync(user))
+            {
+                throw new ArgumentException("User needs to verify account from email");
+            }
             if (user == null)
             {
                 throw new ArgumentException("Invalid username or password.");
@@ -254,6 +266,21 @@ namespace Application.Services
 
 
             return accessToken;
+        }
+        public async Task<string> ActivateAcount(int id, string token)
+        {
+            token = WebUtility.UrlDecode(token);
+            var user = await _userContext.Users.FindAsync(id);
+            if (user == null)
+            {
+                return "<p>User didn't find</p>";
+            }
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (result.Succeeded)
+            {
+                return "<!DOCTYPE html>\r\n<html>\r\n<head>\r\n    <meta charset=\"utf-8\" />\r\n    <title>Verification Successful</title>\r\n</head>\r\n<body>\r\n    <h1>Profile Verified</h1>\r\n    <p>Thank you for verifying your profile.</p>\r\n</body>\r\n</html>";
+            }
+            return "<p>There was a error</p>";
         }
     }
 }
