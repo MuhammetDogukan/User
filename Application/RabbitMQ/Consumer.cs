@@ -23,7 +23,7 @@ namespace Application.RabbitMQ
             _connectionFactory = new ConnectionFactory
             {
                 // RabbitMQ sunucu bağlantı bilgilerini burada ayarlayın
-                HostName = "localhost",
+                HostName = "my-rabbitmq",
                 UserName = "guest",
                 Password = "guest"
             };

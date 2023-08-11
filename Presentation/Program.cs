@@ -8,6 +8,8 @@ using Domain.MapperProfile;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Infrastructure.Context;
+using MassTransit;
+using RabbitMQ;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +19,8 @@ using Application.MainHub;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
+using StackExchange.Redis;
+using Application.MassTransitRabbiMq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,7 +119,24 @@ builder.Services.AddDbContext<UserContext>(options =>
 
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddSignalR();
-builder.Services.AddHostedService<Consumer>();
+//builder.Services.AddHostedService<Consumer>();
+
+builder.Services.AddMassTransit(x =>
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "//", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        cfg.ConfigureEndpoints(context);
+        cfg.ReceiveEndpoint("SendEmail", (c) =>
+        {
+            c.Consumer<MassRabbitConsumer>();
+        });
+    }));
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

@@ -23,10 +23,16 @@ using Application.Enums;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Security.Policy;
 using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Internal;
 using System.Security.Permissions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Mvc;
 using static System.Net.WebRequestMethods;
+using Microsoft.AspNetCore.Mvc.TagHelpers;
 using System.Net;
+using MassTransit;
+using Application.MassTransitRabbiMq;
 
 namespace Application.Services
 {
@@ -41,9 +47,10 @@ namespace Application.Services
         private readonly UserManager<User> _userManager;
         private readonly IHubContext<MessageHub, IMessageHub> _messageHub;
         private readonly SignInManager<User> _signInManager;
+        private readonly IPublishEndpoint _publishEndpoint;
 
         public UserService(IUserContext userContext, IValidator<User> validator, ITokenService tokenService, IRabbitMQService rabbitMQService, 
-            IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager, SignInManager<User> signInManager)
+            IDistributedCache distributedCache, IMapper mapper, UserManager<User> userManager, SignInManager<User> signInManager, IPublishEndpoint publishEndpoint)
         {
             _userContext = userContext;
             _validator = validator;
@@ -53,6 +60,7 @@ namespace Application.Services
             _mapper = mapper;
             _userManager = userManager;
             _signInManager = signInManager;
+            _publishEndpoint = publishEndpoint;
         }
         
 
@@ -118,9 +126,8 @@ namespace Application.Services
         }
         public async Task<GetUserDto> CreateUser(CreateUserDto createUser)
         {
-            string[] userName = createUser.Email.Split("@"); 
             var user = _mapper.Map<User>(createUser);
-            user.UserName = userName[0];
+            user.UserName = user.Email;
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
@@ -138,8 +145,8 @@ namespace Application.Services
                 await _userManager.AddToRoleAsync(user, RoleEnum.User.ToString());
             else if (createUser.Role == RoleEnum.Admin.ToString())
             {
-                await _userManager.AddToRoleAsync(user, RoleEnum.Admin.ToString());
-                await _messageHub.Clients.All.AddAdminGroup();
+                //await _userManager.AddToRoleAsync(user, RoleEnum.Admin.ToString());
+                //await _messageHub.Clients.All.AddAdminGroup();
             }
 
             else if (createUser.Role == RoleEnum.SuperUser.ToString())
@@ -165,15 +172,26 @@ namespace Application.Services
             //string Password=Guid.NewGuid().ToString("N").Substring(0, 6).ToLower();
             string Password = "123123";
 
+            user.IsDeleted = false;
+            var succes = await _userManager.CreateAsync(user, Password);
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             token = WebUtility.UrlEncode(token);
 
             var url = $"https://localhost:7161/api/User/{user.Id}/{token}";
-            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+", to onfirm your email click here "+url+"."+user.Email;
-            _rabbitMQService.SendMessage(mailMessage);
+            
 
-            user.IsDeleted = false;
+            var mailMessage = "Welcome to the system " + user.UserName + ", your password " + user.PasswordHash+", to onfirm your email click here "+url;
+            var sendMailQ = new SendMailQ
+            {
+                Body = mailMessage,
+                To = user.Email
+            };
+
+            var bus = Bus.Factory.CreateUsingRabbitMq().Publish(mailMessage);
+            _publishEndpoint.Publish(mailMessage);
+            //_rabbitMQService.SendMessage(mailMessage);
+
 
 
             var cacheKey = $"User_{user.Id}";
@@ -185,8 +203,6 @@ namespace Application.Services
             await _distributedCache.SetAsync(cacheKey, byteData, cacheEntryOptions);
 
 
-
-            await _userManager.CreateAsync(user, Password);
 
 
             var getUserDto = _mapper.Map<GetUserDto>(user);
@@ -246,10 +262,7 @@ namespace Application.Services
             
             var user = await _userContext.Users.FirstOrDefaultAsync(u => u.UserName == model.UserName);
             
-            if (!await _userManager.IsEmailConfirmedAsync(user))
-            {
-                throw new ArgumentException("User needs to verify account from email");
-            }
+
             if (user == null)
             {
                 throw new ArgumentException("Invalid username or password.");
